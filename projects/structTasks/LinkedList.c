@@ -87,11 +87,7 @@ Person removep(int index)
 }
 void printList()
 {
-	printf("LinkedList\n");typedef struct
-{
-	char *name;
-	int age;
-} Person;
+	printf("LinkedList\n");
 
 	struct Node *temp=first;
 		while(temp!=NULL){
