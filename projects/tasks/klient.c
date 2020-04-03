@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 #define PORT 8888
-#define ADDRESS "127.0.0.3"
+#define ADDRESS "127.0.0.1"
 #define true 1
 
 void in_err(int n,char * message){
