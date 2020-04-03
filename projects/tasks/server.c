@@ -15,6 +15,21 @@
 #define PORT 8888
 #define ADDRESS "127.0.0.1"
 #define true 1
+
+char client_message[1024];
+void * socketThread(void *arg){
+	int newSocket = *((int *)arg);
+	int recv_res=recv(newSocket,client_message,1024,0);	
+	in_err(recv_res,"Error in recv method!");	
+	int resoult=stringConvertToArithmeticOperations(client_message);
+	itoa(resoult,client_message);
+	//sleep(1);
+	int send_res=send(newSocket,client_message,1024,0);
+	in_err(send_res,"Error in send method!");
+	close(newSocket);
+	pthread_exit(NULL);
+}
+
 int main(){
 
 	int mainsocket,newsocket,bind_res;
