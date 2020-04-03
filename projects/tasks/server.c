@@ -9,13 +9,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "task.c"
+//#include "task.c"
 
 #define PORT 8888
 #define ADDRESS "127.0.0.3"
 #define MAX_CLIENT 30
 #define true 1
-/*
 void in_err(int n,char * message){
 	if(n<0){
 		perror(message);
@@ -147,7 +146,7 @@ void itoa(int n, char s[])
          s[i++] = '-';
      s[i] = '\0';
      reverse(s);
- }*/
+ }
 int main(){
 
 	int mainsocket,newsocket,bind_res,accept_res,send_res,recv_res;
