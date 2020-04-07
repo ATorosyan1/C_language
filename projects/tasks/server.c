@@ -14,7 +14,7 @@
 #include <pthread.h>
 
 #define PORT 8888
-#define ADDRESS "127.0.0.1"
+#define ADDRESS "127.0.0.2"
 #define true 1
 
 char *client_message;
@@ -45,7 +45,8 @@ void * socketThread(void *arg){
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE,NULL);
 	
 	//creates a thread cancel point.
-	pthread_testcancel();
+	//pthread_testcancel();
+	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
 	//retrieves a thread completion handler
 	pthread_cleanup_pop(1);
