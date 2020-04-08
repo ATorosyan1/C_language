@@ -1,0 +1,1 @@
+{ "Message": "Hello server!", "Task": "2+3-(1+4)*(22-19)" }{ "Message": "Hello client!", "Resoult": -10 }
