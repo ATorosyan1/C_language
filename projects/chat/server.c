@@ -11,13 +11,13 @@
 #include <stdio.h>
 
 #define PORT 3425
-#define IP "127.0.0.26"
+#define IP "127.0.0.1"
 #define true 1
 
-#define MAX_CLIENTS 3
 #define BUFFER_SZ 2048
 #define NAME_LEN 32
 
+#define MAX_CLIENTS 20
 static _Atomic unsigned int cli_count=0;
 static int uid=100;
 
@@ -27,6 +27,7 @@ typedef struct{
 	int sockfd;
 	int uid;
 	char name[NAME_LEN];
+	char recipientname[NAME_LEN];
 }client_t;
 
 client_t *clients[MAX_CLIENTS];
@@ -55,7 +56,7 @@ void in_err(int n,char * message){
 }
 
 void queue_add(client_t * cl){
-	
+
 	pthread_mutex_lock(&client_mutex);
 
 	for(int i=0;i<MAX_CLIENTS;i++){
@@ -69,7 +70,7 @@ void queue_add(client_t * cl){
 }
 
 void queue_remove(int uid){
-	
+
 	pthread_mutex_lock(&client_mutex);
 
 	for(int i=0;i<MAX_CLIENTS;i++){
@@ -86,15 +87,15 @@ void ptint_ip_addr(struct sockaddr_in addr){
 
 }
 
-void send_message(char *s,int uid){
-	
+void send_message(char *s,client_t *cli){
+
 	pthread_mutex_lock(&client_mutex);
-	
+
 	for(int i=0;i<MAX_CLIENTS;i++){
-		if(clients[i]!=NULL && clients[i]->uid!=uid){
+		if(clients[i]!=NULL && clients[i]->uid!=cli->uid && strcmp(clients[i]->name,cli->recipientname)==0 ){
 			int send_res=send(clients[i]->sockfd,s,strlen(s),0);
 			if(send_res<0){
-				printf("Error :send!");	
+				printf("Error :send!");
 				break;
 			}
 		}
@@ -106,23 +107,33 @@ void send_message(char *s,int uid){
 void * handle_client(void * arg){
 	char buffer[BUFFER_SZ];
 	char name[NAME_LEN];
+	char recipientname[NAME_LEN];
 	int leave_flag=0;
 	cli_count++;
 
 	client_t *cli = (client_t *)arg;
-	
+
 	if(recv(cli->sockfd,name,NAME_LEN,0)<=0 || strlen(name)>32){
 		printf("Enter the name correctly\n");
 		leave_flag=1;
 	}else{
 		strcpy(cli->name,name);
+		printf("\n" );
 		sprintf(buffer,"%s has joined\n",cli->name);
 		printf("%s",buffer);
-		send_message(buffer,cli->uid);
+		send_message(buffer,cli);
 	}
-
+	bzero(name,NAME_LEN);
 	bzero(buffer,BUFFER_SZ);
 
+		if(recv(cli->sockfd,recipientname,NAME_LEN,0)<=0 || strlen(recipientname)>32){
+			printf("Enter the recipientname correctly\n");
+			leave_flag=1;
+		}else{
+			strcpy(cli->recipientname,recipientname);
+		}
+			bzero(recipientname,NAME_LEN);
+			bzero(buffer,BUFFER_SZ);
 	while(true){
 		if(leave_flag){
 			break;
@@ -130,14 +141,14 @@ void * handle_client(void * arg){
 		int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
 		if(receive>0){
 			if(strlen(buffer)>0){
-				send_message(buffer,cli->uid);
+				send_message(buffer,cli);
 				str_trim_lf(buffer,strlen(buffer));
 				printf("%s -> %s",buffer,cli->name);
 			}
 		}else if(receive == 0 || strcmp(buffer,"exit") == 0){
 			sprintf(buffer,"%s has left \n",cli->name);
 			printf("\n%s",buffer);
-			send_message(buffer,cli->uid);
+			send_message(buffer,cli);
 			leave_flag = 1;
 		}else{
 			printf("Error:-1\n");
@@ -150,9 +161,9 @@ void * handle_client(void * arg){
 	free(cli);
 	cli_count--;
 	pthread_detach(pthread_self());
-	
+
 	return NULL;
-	
+
 }
 
 int main(){
@@ -165,11 +176,11 @@ int main(){
 	//Socket Settings
 	listenfd=socket(AF_INET,SOCK_STREAM,0);
 	in_err(listenfd,"Error:socket!");
-	
+
 	serv_addr.sin_family=AF_INET;
 	serv_addr.sin_port=htons(PORT);
 	serv_addr.sin_addr.s_addr=inet_addr(IP);
-	
+
 	int bind_res;
 	bind_res=bind(listenfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
 	in_err(bind_res,"Error:bind! ");
@@ -179,7 +190,7 @@ int main(){
 	printf("===WELCOME TO THE CHATROOM===\n");
 
 	while(true){
-	
+
 	  int cli_size;
 	  connfd=accept(listenfd,(struct sockaddr *)&cli_addr,&cli_size);
 	  in_err(connfd,"Error:accept!");
@@ -196,7 +207,7 @@ int main(){
 	  cli->address=cli_addr;
 	  cli->sockfd=connfd;
 	  cli->uid=uid++;
-	
+
 	  queue_add(cli);
 	  pthread_create(&tid,NULL,&handle_client,(void *) cli);
 
@@ -204,12 +215,3 @@ int main(){
 	}
 	return EXIT_SUCCESS;
 }
-
-
-
-
-
-
-
-
-

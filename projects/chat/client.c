@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #define PORT 3425
-#define IP "127.0.0.26"
+#define IP "127.0.0.90"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -21,6 +21,7 @@
 volatile sig_atomic_t flag=0;
 int sockfd=0;
 char name[NAME_LEN];
+char recipientname[NAME_LEN];
 
 void str_overwrite_stdout(){
 	printf("\r%s",">");
@@ -49,11 +50,11 @@ void  send_msg_handler(){
 	char message[BUFFER_SZ+NAME_LEN]={};
 	while(true){
 		str_overwrite_stdout();
-		
+
 		//input buffer
 		fgets(buffer,BUFFER_SZ,stdin);
 		str_trim_lf(buffer,BUFFER_SZ);
-	
+
 		if(strcmp(buffer,"exit")==0){
 			bzero(buffer,BUFFER_SZ);
 			bzero(message,BUFFER_SZ+NAME_LEN);
@@ -64,18 +65,18 @@ void  send_msg_handler(){
 		}
 		bzero(buffer,BUFFER_SZ);
 		bzero(message,BUFFER_SZ+NAME_LEN);
-	}	
+	}
 	catch_ctrl_c_and_exit();
 }
 
 void recv_msg_handler(){
 	char message[BUFFER_SZ];
 	while(true){
-		
+
 		bzero(message,BUFFER_SZ);
 		int receive=recv(sockfd,message,BUFFER_SZ,0);
 		if(receive>0){
-			printf("%s",message);	
+			printf("%s",message);
 			str_overwrite_stdout();
 		}else if(receive==0){
 			break;
@@ -84,7 +85,7 @@ void recv_msg_handler(){
 	}
 }
 int main(int argc,char ** argv){
-	
+
 	printf("Enter your name: ");
 	fgets(name,NAME_LEN,stdin);
 	str_trim_lf(name,strlen(name));
@@ -93,14 +94,21 @@ int main(int argc,char ** argv){
 		printf("Enter name correctly\n");
 		return EXIT_FAILURE;
 	}
-	
-	
+
+	printf("%s","To whom to send messages: " );
+	fgets(recipientname,NAME_LEN,stdin);
+	str_trim_lf(recipientname,strlen(recipientname));
+
+	if(strlen(recipientname)>NAME_LEN-1 || strlen(recipientname)<2){
+		printf("Enter recipientname correctly\n");
+		return EXIT_FAILURE;
+	}
 	struct sockaddr_in server_addr;
 
 	//Socket Settings
 	sockfd=socket(AF_INET,SOCK_STREAM,0);
 	in_err(sockfd,"Error:socket!");
-	
+
 	server_addr.sin_family=AF_INET;
 	server_addr.sin_port=htons(PORT);
 	server_addr.sin_addr.s_addr=inet_addr(IP);
@@ -108,9 +116,10 @@ int main(int argc,char ** argv){
 	//connect to server
         int err=connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr));
 	in_err(err,"Error : connect!");
-	
+
 	//send name
 	send(sockfd,name,NAME_LEN,0);
+	send(sockfd,recipientname,NAME_LEN,0);
 	printf("===WELCOME TO THE CHATROOM===\n");
 
 
@@ -133,7 +142,7 @@ int main(int argc,char ** argv){
 	while(1){
 		if(flag){
 			printf("\nbye\n");
-			break;		
+			break;
 		}
 	}
 	close(sockfd);
@@ -141,4 +150,3 @@ int main(int argc,char ** argv){
 
 
 }
-
