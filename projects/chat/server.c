@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "task.c"
 
 #define PORT 3425
 #define IP "127.0.0.1"
@@ -38,7 +39,13 @@ void str_overwrite_stdout(){
 	printf("\r%s",">");
 	fflush(stdout);
 }
-
+int is_task(const char * task){
+	if(task[0]!='-'){
+		if(strstr(task,"+")!= NULL || strstr(task,"-")!=NULL || strstr(task,"*")!=NULL || strstr(task,"/")!=NULL)
+		return 1;
+	}
+	return 0;
+}
 void str_trim_lf(char * arr,int len){
 	for(int i=0;i<len;i++){
 		if(arr[i]=='\n'){
@@ -134,20 +141,24 @@ void * handle_client(void * arg){
 		}
 			bzero(recipientname,NAME_LEN);
 			bzero(buffer,BUFFER_SZ);
+			char tasks[2048];
 	while(true){
 		if(leave_flag){
 			break;
 		}
 		int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
 
+		struct json_object * parser_json=json_tokener_parse(buffer);
+		struct json_object * jname;
+		struct json_object *jmessage;
+		struct json_object *jtask;
+		struct json_object *jobj;
+
 		if(strstr(buffer,"exit") !=NULL){
-			struct json_object * parser_json;
-			struct json_object * jname;
-			struct json_object *jobj=json_object_new_object();
-			struct json_object *jmessage=json_object_new_string("has left");
 
+			jobj=json_object_new_object();
+			jmessage=json_object_new_string("has left");
 
-			parser_json=json_tokener_parse(buffer);
 			json_object_object_get_ex(parser_json,"Name",&jname);
 
 			json_object_object_add(jobj,"Name",jname);
@@ -161,7 +172,34 @@ void * handle_client(void * arg){
 			leave_flag = 1;
 		}else if(receive > 0){
 			if(strlen(buffer)>0){
-				send_message(buffer,cli);
+
+				json_object_object_get_ex(parser_json,"Message",&jmessage);
+				const char * ptr=json_object_get_string(jmessage);
+				if(is_task(ptr)==0){
+					json_object_object_get_ex(parser_json,"Task",&jtask);
+					const char * tas=json_object_get_string(jtask);
+
+					int cli_res=json_object_get_int(jmessage);
+					int res=stringConvertToArithmeticOperations(tas);
+
+					if(res==cli_res){
+						send_message(buffer,cli);
+					}else{
+						jmessage=json_object_new_string("Wrong result!");
+						jname=json_object_new_string("Server");
+						jobj=json_object_new_object();
+
+						json_object_object_add(jobj,"Name",jname);
+						json_object_object_add(jobj,"Message",jmessage);
+
+						sprintf(buffer,"%s\n",json_object_get_string(jobj));
+						send(cli->sockfd,buffer,sizeof(buffer),0);
+					}
+					//strcpy(tasks,ptr);
+					//send_message(buffer,cli);
+				}else{
+					send_message(buffer,cli);
+				}
 				str_trim_lf(buffer,strlen(buffer));
 			}
 		}else{

@@ -17,11 +17,13 @@
 
 #define BUFFER_SZ 2048
 #define NAME_LEN 32
+#define TASK_LEN 2048
 
 volatile sig_atomic_t flag=0;
 int sockfd=0;
 char name[NAME_LEN];
 char recipientname[NAME_LEN];
+char last_task[TASK_LEN];
 
 void str_overwrite_stdout(){
 	printf("\r%s",">");
@@ -35,7 +37,13 @@ void str_trim_lf(char * arr,int len){
 		}
 	}
 }
-
+int is_task(const char * task){
+	if(task[0]!='-'){
+		if(strstr(task,"+")!= NULL || strstr(task,"-")!=NULL || strstr(task,"*")!=NULL || strstr(task,"/")!=NULL)
+		return 1;
+	}
+	return 0;
+}
 void in_err(int n,char * message){
 	if(n<0){
 		perror(message);
@@ -54,15 +62,17 @@ void  send_msg_handler(){
 		fgets(buffer,BUFFER_SZ,stdin);
 		str_trim_lf(buffer,BUFFER_SZ);
 
-
 		struct json_object * jobj=json_object_new_object();
 		struct json_object *jmessage=json_object_new_string(buffer);
 		struct json_object *jname=json_object_new_string(name);
-
+		struct json_object *jtask=json_object_new_string(last_task);
 
 		json_object_object_add(jobj,"Name",jname);
 		json_object_object_add(jobj,"Message",jmessage);
 
+		if(is_task(buffer)==0){
+			json_object_object_add(jobj,"Task",jtask);
+		}
 		const char * message=json_object_to_json_string(jobj);
 		send(sockfd,message,strlen(message),0);
 
@@ -93,6 +103,9 @@ void recv_msg_handler(){
 			json_object_object_get_ex(json_parser,"Name",&jname);
 			json_object_object_get_ex(json_parser,"Message",&jmessage);
 
+			if(is_task(json_object_get_string(jmessage))==1){
+				strcpy(last_task,json_object_get_string(jmessage));
+			}
 			sprintf(buffer,"%s: %s\n ",json_object_get_string(jname),json_object_get_string(jmessage));
 			printf("%s",buffer);
 			str_overwrite_stdout();
