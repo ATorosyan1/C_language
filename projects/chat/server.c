@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 #define PORT 3425
-#define IP "127.0.2.22"
+#define IP "127.0.0.1"
 #define true 1
 
 #define BUFFER_SZ 2048

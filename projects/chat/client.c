@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #define PORT 3425
-#define IP "127.0.2.22"
+#define IP "127.0.0.1"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -78,6 +78,7 @@ void  send_msg_handler(){
 void recv_msg_handler(){
 	char message[BUFFER_SZ];
 	char buffer[BUFFER_SZ];
+
 	while(true){
 
 		bzero(message,BUFFER_SZ);
@@ -86,6 +87,7 @@ void recv_msg_handler(){
 		struct json_object * json_parser;
 		struct json_object * jname;
 		struct json_object *jmessage;
+
 		if(receive>0){
 			json_parser=json_tokener_parse(message);
 			json_object_object_get_ex(json_parser,"Name",&jname);
