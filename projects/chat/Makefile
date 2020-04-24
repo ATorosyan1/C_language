@@ -1,3 +1,3 @@
 run:server.c
-	gcc server.c -lpthread -g -o server.out
+	gcc server.c -lpthread -ljson-c -g -o server.out
 	./server.out

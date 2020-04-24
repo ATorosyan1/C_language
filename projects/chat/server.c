@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 #define PORT 3425
-#define IP "127.0.0.1"
+#define IP "127.0.2.22"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -121,7 +121,7 @@ void * handle_client(void * arg){
 		printf("\n" );
 		sprintf(buffer,"%s has joined\n",cli->name);
 		printf("%s",buffer);
-		send_message(buffer,cli);
+	//	send_message(buffer,cli);
 	}
 	bzero(name,NAME_LEN);
 	bzero(buffer,BUFFER_SZ);
@@ -139,17 +139,31 @@ void * handle_client(void * arg){
 			break;
 		}
 		int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
-		if(receive>0){
+
+		if(strstr(buffer,"exit") !=NULL){
+			struct json_object * parser_json;
+			struct json_object * jname;
+			struct json_object *jobj=json_object_new_object();
+			struct json_object *jmessage=json_object_new_string("has left");
+
+
+			parser_json=json_tokener_parse(buffer);
+			json_object_object_get_ex(parser_json,"Name",&jname);
+
+			json_object_object_add(jobj,"Name",jname);
+			json_object_object_add(jobj,"Message",jmessage);
+
+			bzero(buffer,BUFFER_SZ);
+			const char * ptr=json_object_get_string(jname);
+			printf("\n%s has left\n",ptr );
+			sprintf(buffer,"%s\n",json_object_get_string(jobj));
+			send_message(buffer,cli);
+			leave_flag = 1;
+		}else if(receive > 0){
 			if(strlen(buffer)>0){
 				send_message(buffer,cli);
 				str_trim_lf(buffer,strlen(buffer));
-				printf("%s -> %s",buffer,cli->name);
 			}
-		}else if(receive == 0 || strcmp(buffer,"exit") == 0){
-			sprintf(buffer,"%s has left \n",cli->name);
-			printf("\n%s",buffer);
-			send_message(buffer,cli);
-			leave_flag = 1;
 		}else{
 			printf("Error:-1\n");
 			leave_flag = 1;

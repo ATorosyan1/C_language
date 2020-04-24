@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #define PORT 3425
-#define IP "127.0.0.90"
+#define IP "127.0.2.22"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -47,7 +47,6 @@ void catch_ctrl_c_and_exit(){
 }
 void  send_msg_handler(){
 	char buffer[BUFFER_SZ]={};
-	char message[BUFFER_SZ+NAME_LEN]={};
 	while(true){
 		str_overwrite_stdout();
 
@@ -55,28 +54,45 @@ void  send_msg_handler(){
 		fgets(buffer,BUFFER_SZ,stdin);
 		str_trim_lf(buffer,BUFFER_SZ);
 
+
+		struct json_object * jobj=json_object_new_object();
+		struct json_object *jmessage=json_object_new_string(buffer);
+		struct json_object *jname=json_object_new_string(name);
+
+
+		json_object_object_add(jobj,"Name",jname);
+		json_object_object_add(jobj,"Message",jmessage);
+
+		const char * message=json_object_to_json_string(jobj);
+		send(sockfd,message,strlen(message),0);
+
 		if(strcmp(buffer,"exit")==0){
 			bzero(buffer,BUFFER_SZ);
-			bzero(message,BUFFER_SZ+NAME_LEN);
 			break;
-		}else{
-			sprintf(message,"%s: %s\n",name,buffer);
-			send(sockfd,message,strlen(message),0);
 		}
 		bzero(buffer,BUFFER_SZ);
-		bzero(message,BUFFER_SZ+NAME_LEN);
 	}
 	catch_ctrl_c_and_exit();
 }
 
 void recv_msg_handler(){
 	char message[BUFFER_SZ];
+	char buffer[BUFFER_SZ];
 	while(true){
 
 		bzero(message,BUFFER_SZ);
 		int receive=recv(sockfd,message,BUFFER_SZ,0);
+
+		struct json_object * json_parser;
+		struct json_object * jname;
+		struct json_object *jmessage;
 		if(receive>0){
-			printf("%s",message);
+			json_parser=json_tokener_parse(message);
+			json_object_object_get_ex(json_parser,"Name",&jname);
+			json_object_object_get_ex(json_parser,"Message",&jmessage);
+
+			sprintf(buffer,"%s: %s\n ",json_object_get_string(jname),json_object_get_string(jmessage));
+			printf("%s",buffer);
 			str_overwrite_stdout();
 		}else if(receive==0){
 			break;
