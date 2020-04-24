@@ -12,7 +12,7 @@
 #include <signal.h>
 
 #define PORT 3425
-#define IP "127.0.0.1"
+#define IP "127.1.0.2"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -38,10 +38,19 @@ void str_trim_lf(char * arr,int len){
 	}
 }
 int is_task(const char * task){
-	if(task[0]!='-'){
-		if(strstr(task,"+")!= NULL || strstr(task,"-")!=NULL || strstr(task,"*")!=NULL || strstr(task,"/")!=NULL)
-		return 1;
+	char * ptr;
+	if(task[0=='-']){
+		ptr=malloc(strlen(task)-1);
+		for(int i=0;i<strlen(ptr);i++)
+			ptr[i]=task[i+1];
+	}else{
+		ptr=malloc(strlen(task));
+		for(int i=0;i<strlen(ptr);i++)
+			ptr[i]=task[i];
 	}
+		if(strstr(ptr,"+")!= NULL || strstr(ptr,"-")!=NULL || strstr(ptr,"*")!=NULL || strstr(ptr,"/")!=NULL)
+		return 1;
+
 	return 0;
 }
 void in_err(int n,char * message){
