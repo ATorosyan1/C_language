@@ -10,23 +10,35 @@
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
+#include <time.h>
 
 #define PORT 3425
-#define IP "127.1.0.2"
+#define IP "127.0.0.1"
 #define true 1
 
-#define BUFFER_SZ 2048
+#define BUffER_SZ 2048
 #define NAME_LEN 32
 #define TASK_LEN 2048
 
 volatile sig_atomic_t flag=0;
+volatile sig_atomic_t last_message = 1;
+int serv_time=-1;
 int sockfd=0;
 char name[NAME_LEN];
 char recipientname[NAME_LEN];
 char last_task[TASK_LEN];
 
 void str_overwrite_stdout(){
-	printf("\r%s",">");
+	if(last_message==1){
+		printf("\r%s","Enter the expression: ");
+	}else if(last_message==0){
+		printf("\r%s","Enter resolt: " );
+		last_message = -1;
+		goto p;
+	}else{
+		printf("\r%s",">" );
+	}
+	p:
 	fflush(stdout);
 }
 void str_trim_lf(char * arr,int len){
@@ -63,65 +75,107 @@ void catch_ctrl_c_and_exit(){
 	flag=1;
 }
 void  send_msg_handler(){
-	char buffer[BUFFER_SZ]={};
+	char buffer[BUffER_SZ]={};
 	while(true){
 		str_overwrite_stdout();
+		time_t currenttime;
+		time(&currenttime);
 
+		struct tm * mytime=localtime(&currenttime);
 		//input buffer
-		fgets(buffer,BUFFER_SZ,stdin);
-		str_trim_lf(buffer,BUFFER_SZ);
+		fgets(buffer,BUffER_SZ,stdin);
+		str_trim_lf(buffer,BUffER_SZ);
+
 
 		struct json_object * jobj=json_object_new_object();
 		struct json_object *jmessage=json_object_new_string(buffer);
 		struct json_object *jname=json_object_new_string(name);
 		struct json_object *jtask=json_object_new_string(last_task);
+		struct json_object *jserv_sec=json_object_new_int(serv_time);
+		struct json_object *jclient_sec=json_object_new_int(mytime->tm_hour*3600+mytime->tm_min*60+mytime->tm_sec);
 
 		json_object_object_add(jobj,"Name",jname);
 		json_object_object_add(jobj,"Message",jmessage);
 
+		int falg_1=0;
+		if(strstr(json_object_get_string(jmessage),"Wrong resolt!")!=NULL){
+			falg_1=1;
+		}
 		if(is_task(buffer)==0){
 			json_object_object_add(jobj,"Task",jtask);
-		}
+			json_object_object_add(jobj,"ServerSec",jserv_sec);
+			json_object_object_add(jobj,"ClientSec",jclient_sec);
+			if(falg_1==0){
+				last_message=1;
+			}
+		}/*else{
+			last_message=-1;
+		}*/
 		const char * message=json_object_to_json_string(jobj);
 		send(sockfd,message,strlen(message),0);
-
+	//	serv_time = -1;
 		if(strcmp(buffer,"exit")==0){
-			bzero(buffer,BUFFER_SZ);
+			bzero(buffer,BUffER_SZ);
 			break;
 		}
-		bzero(buffer,BUFFER_SZ);
+		bzero(buffer,BUffER_SZ);
 	}
 	catch_ctrl_c_and_exit();
 }
 
 void recv_msg_handler(){
-	char message[BUFFER_SZ];
-	char buffer[BUFFER_SZ];
+	char message[BUffER_SZ];
+	char buffer[BUffER_SZ];
 
 	while(true){
 
-		bzero(message,BUFFER_SZ);
-		int receive=recv(sockfd,message,BUFFER_SZ,0);
+		bzero(message,BUffER_SZ);
+		int receive=recv(sockfd,message,BUffER_SZ,0);
 
 		struct json_object * json_parser;
 		struct json_object * jname;
 		struct json_object *jmessage;
+		struct json_object *jserv_time;
 
 		if(receive>0){
+			last_message=-1;
 			json_parser=json_tokener_parse(message);
 			json_object_object_get_ex(json_parser,"Name",&jname);
 			json_object_object_get_ex(json_parser,"Message",&jmessage);
 
+			int flag_2=0;
+			int flag_3=0;
 			if(is_task(json_object_get_string(jmessage))==1){
+				flag_2=1;
 				strcpy(last_task,json_object_get_string(jmessage));
+				json_object_object_get_ex(json_parser,"ServerSec",&jserv_time);
+				serv_time=json_object_get_int(jserv_time);
+			}else{
+				flag_3=1;
 			}
+			int flag_4=0;
+			if(strstr(json_object_get_string(jmessage),"Wrong resolt!")!=NULL){
+				last_message=0;
+				flag_4=1;
+			}
+			printf("\n\n");
+
 			sprintf(buffer,"%s: %s\n ",json_object_get_string(jname),json_object_get_string(jmessage));
-			printf("%s",buffer);
+			printf("%s\n",buffer);
+
+			if(flag_4==0){
+				if(flag_2==1){
+					last_message=0;
+				}
+				if(flag_3==1){
+					last_message=1;
+				}
+			}
 			str_overwrite_stdout();
 		}else if(receive==0){
 			break;
 		}
-		bzero(message,BUFFER_SZ);
+		bzero(message,BUffER_SZ);
 	}
 }
 int main(int argc,char ** argv){
@@ -160,7 +214,7 @@ int main(int argc,char ** argv){
 	//send name
 	send(sockfd,name,NAME_LEN,0);
 	send(sockfd,recipientname,NAME_LEN,0);
-	printf("===WELCOME TO THE CHATROOM===\n");
+	printf("============ WELCOME =============\n");
 
 
 	pthread_t send_msg_thread;

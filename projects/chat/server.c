@@ -9,10 +9,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 #include "task.c"
 
 #define PORT 3425
-#define IP "127.1.0.2"
+#define IP "127.0.0.1"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -139,6 +140,7 @@ void * handle_client(void * arg){
 		printf("%s",buffer);
 	//	send_message(buffer,cli);
 	}
+
 	bzero(name,NAME_LEN);
 	bzero(buffer,BUFFER_SZ);
 
@@ -151,6 +153,7 @@ void * handle_client(void * arg){
 			bzero(recipientname,NAME_LEN);
 			bzero(buffer,BUFFER_SZ);
 			char tasks[2048];
+
 	while(true){
 		if(leave_flag){
 			break;
@@ -161,6 +164,8 @@ void * handle_client(void * arg){
 		struct json_object * jname;
 		struct json_object *jmessage;
 		struct json_object *jtask;
+		struct json_object *jserv_sec;
+		struct json_object *jcli_sec;
 		struct json_object *jobj;
 
 		if(strstr(buffer,"exit") !=NULL){
@@ -181,23 +186,26 @@ void * handle_client(void * arg){
 			leave_flag = 1;
 		}else if(receive > 0){
 			if(strlen(buffer)>0){
-
 				json_object_object_get_ex(parser_json,"Message",&jmessage);
 				const char * ptr=json_object_get_string(jmessage);
+
 				if(is_task(ptr)==0){
+					json_object_object_get_ex(parser_json,"ServerSec",&jserv_sec);
+					json_object_object_get_ex(parser_json,"ClientSec",&jcli_sec);
 					json_object_object_get_ex(parser_json,"Task",&jtask);
+
 					const char * tas=json_object_get_string(jtask);
 
-					int cli_res=json_object_get_int(jmessage);
-					int res=stringConvertToArithmeticOperations(tas);
+					int s_sec=json_object_get_int(jserv_sec);
+					int c_sec=json_object_get_int(jcli_sec);
 
-					printf("cli_res: %d\n",cli_res);
-					printf("res: %d\n",res );
+					//printf("c_sec: %d\n",c_sec);
+				 //	printf("s_sec: %d\n",s_sec );
 
-					if(res==cli_res){
-						send_message(buffer,cli);
-					}else{
-						jmessage=json_object_new_string("Wrong result!");
+					if(c_sec-s_sec>20){
+						char time_mess[1024];
+						sprintf(time_mess,"Time is up! %s did not have time.",cli->name);
+						jmessage=json_object_new_string(time_mess);
 						jname=json_object_new_string("Server");
 						jobj=json_object_new_object();
 
@@ -205,12 +213,54 @@ void * handle_client(void * arg){
 						json_object_object_add(jobj,"Message",jmessage);
 
 						sprintf(buffer,"%s\n",json_object_get_string(jobj));
+						send_message(buffer,cli);
+						continue;
+					}
+
+					int cli_res=json_object_get_int(jmessage);
+					int res=stringConvertToArithmeticOperations(tas);
+
+
+					if(res==cli_res){
+						send_message(buffer,cli);
+					}else{
+						jmessage=json_object_new_string("Wrong resolt!");
+						jname=json_object_new_string("Server");
+						jobj=json_object_new_object();
+
+						json_object_object_add(jobj,"Name",jname);
+						json_object_object_add(jobj,"Message",jmessage);
+						json_object_object_add(jobj,"ServerSec",jserv_sec);
+
+						sprintf(buffer,"%s\n",json_object_get_string(jobj));
 						send(cli->sockfd,buffer,sizeof(buffer),0);
 					}
 					//strcpy(tasks,ptr);
 					//send_message(buffer,cli);
 				}else{
-					send_message(buffer,cli);
+
+					time_t currenttime;
+					time(&currenttime);
+
+					struct tm * mytime=localtime(&currenttime);
+					jserv_sec=json_object_new_int(mytime->tm_hour*3600+mytime->tm_min*60+mytime->tm_sec);
+
+					jobj=json_object_new_object();
+
+					json_object_object_get_ex(parser_json,"Message",&jmessage);
+					json_object_object_get_ex(parser_json,"Task",&jtask);
+					json_object_object_get_ex(parser_json,"Name",&jname);
+
+					json_object_object_add(jobj,"Name",jname);
+					json_object_object_add(jobj,"Message",jmessage);
+					json_object_object_add(jobj,"ServerSec",jserv_sec);
+
+					const char * t_1=json_object_get_string(jobj);
+					char  s_buffer[strlen(t_1)];
+					for(int i=0;i<strlen(t_1);i++){
+						s_buffer[i]=t_1[i];
+					}
+					send_message(s_buffer,cli);
 				}
 				str_trim_lf(buffer,strlen(buffer));
 			}
@@ -251,7 +301,7 @@ int main(){
 
 	in_err(listen(listenfd,10),"Error:listen");
 
-	printf("===WELCOME TO THE CHATROOM===\n");
+	printf("============ WELCOME =============\n");
 
 	while(true){
 
