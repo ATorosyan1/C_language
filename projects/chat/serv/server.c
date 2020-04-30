@@ -71,7 +71,17 @@ void in_err(int n,char * message){
 		exit(1);
 	}
 }
-
+char * queue_get(char * name){
+ //	pthread_mutex_lock(&client_mutex);
+			for(int i=0;i<MAX_CLIENTS;i++){
+				if(clients[i]!=NULL && clients[i]->recipientname!=NULL && strcmp(clients[i]->recipientname,name)==0){
+					char * c_name=clients[i]->name;
+					return c_name;
+				}
+			}
+			return "false";
+ //	pthread_mutex_unlock(&client_mutex);
+}
 void queue_add(client_t * cl){
 
 	pthread_mutex_lock(&client_mutex);
@@ -144,6 +154,9 @@ void * handle_client(void * arg){
 	bzero(name,NAME_LEN);
 	bzero(buffer,BUFFER_SZ);
 
+	char * gh=queue_get(cli->name);
+	send(cli->sockfd,gh,strlen(gh),0);
+
 		if(recv(cli->sockfd,recipientname,NAME_LEN,0)<=0 || strlen(recipientname)>32){
 			printf("Enter the recipientname correctly\n");
 			leave_flag=1;
@@ -202,7 +215,7 @@ void * handle_client(void * arg){
 					//printf("c_sec: %d\n",c_sec);
 				 //	printf("s_sec: %d\n",s_sec );
 
-					if(c_sec-s_sec>20){
+					if(c_sec-s_sec>19){
 						char time_mess[1024];
 						sprintf(time_mess,"Time is up! %s did not have time.",cli->name);
 						jmessage=json_object_new_string(time_mess);
@@ -308,7 +321,6 @@ int main(){
 	  int cli_size;
 	  connfd=accept(listenfd,(struct sockaddr *)&cli_addr,&cli_size);
 	  in_err(connfd,"Error:accept!");
-
 	  if(cli_count+1==MAX_CLIENTS){
 
 	      printf("Maximum clients connected.Connection Rejected\n");
@@ -324,7 +336,6 @@ int main(){
 
 	  queue_add(cli);
 	  pthread_create(&tid,NULL,&handle_client,(void *) cli);
-
 	  sleep(1);
 	}
 	return EXIT_SUCCESS;

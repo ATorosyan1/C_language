@@ -16,7 +16,7 @@
 #define IP "127.0.0.1"
 #define true 1
 
-#define BUffER_SZ 2048
+#define BUFFER_SZ 2048
 #define NAME_LEN 32
 #define TASK_LEN 2048
 
@@ -75,7 +75,7 @@ void catch_ctrl_c_and_exit(){
 	flag=1;
 }
 void  send_msg_handler(){
-	char buffer[BUffER_SZ]={};
+	char buffer[BUFFER_SZ]={};
 	while(true){
 		str_overwrite_stdout();
 		time_t currenttime;
@@ -83,8 +83,8 @@ void  send_msg_handler(){
 
 		struct tm * mytime=localtime(&currenttime);
 		//input buffer
-		fgets(buffer,BUffER_SZ,stdin);
-		str_trim_lf(buffer,BUffER_SZ);
+		fgets(buffer,BUFFER_SZ,stdin);
+		str_trim_lf(buffer,BUFFER_SZ);
 
 
 		struct json_object * jobj=json_object_new_object();
@@ -115,30 +115,30 @@ void  send_msg_handler(){
 		send(sockfd,message,strlen(message),0);
 	//	serv_time = -1;
 		if(strcmp(buffer,"exit")==0){
-			bzero(buffer,BUffER_SZ);
+			bzero(buffer,BUFFER_SZ);
 			break;
 		}
-		bzero(buffer,BUffER_SZ);
+		bzero(buffer,BUFFER_SZ);
 	}
 	catch_ctrl_c_and_exit();
 }
 
 void recv_msg_handler(){
-	char message[BUffER_SZ];
-	char buffer[BUffER_SZ];
+	char message[BUFFER_SZ];
+	char buffer[BUFFER_SZ];
 
 	while(true){
 
-		bzero(message,BUffER_SZ);
-		int receive=recv(sockfd,message,BUffER_SZ,0);
+		bzero(message,BUFFER_SZ);
+		int receive=recv(sockfd,message,BUFFER_SZ,0);
 
 		struct json_object * json_parser;
 		struct json_object * jname;
-		struct json_object *jmessage;
-		struct json_object *jserv_time;
+		struct json_object * jmessage;
+		struct json_object * jserv_time;
 
 		if(receive>0){
-			last_message=-1;
+			last_message =-1;
 			json_parser=json_tokener_parse(message);
 			json_object_object_get_ex(json_parser,"Name",&jname);
 			json_object_object_get_ex(json_parser,"Message",&jmessage);
@@ -154,14 +154,29 @@ void recv_msg_handler(){
 				flag_3=1;
 			}
 			int flag_4=0;
+			int t_h;
 			if(strstr(json_object_get_string(jmessage),"Wrong resolt!")!=NULL){
 				last_message=0;
 				flag_4=1;
+
+				time_t currenttime2;
+				time(&currenttime2);
+
+				struct tm * mytime_2=localtime(&currenttime2);
+			 	t_h=mytime_2->tm_hour*3600+mytime_2->tm_min*60+mytime_2->tm_sec;
+
 			}
 			printf("\n\n");
 
-			sprintf(buffer,"%s: %s\n ",json_object_get_string(jname),json_object_get_string(jmessage));
+			sprintf(buffer,"%s: %s ",json_object_get_string(jname),json_object_get_string(jmessage));
+
 			printf("%s\n",buffer);
+
+			if(flag_4==1){
+				if(t_h-serv_time<=20){
+					printf("Left: %d:%d:%d\n\n",0,0,20-(t_h-serv_time));
+				}
+			}
 
 			if(flag_4==0){
 				if(flag_2==1){
@@ -175,7 +190,7 @@ void recv_msg_handler(){
 		}else if(receive==0){
 			break;
 		}
-		bzero(message,BUffER_SZ);
+		bzero(message,BUFFER_SZ);
 	}
 }
 int main(int argc,char ** argv){
@@ -189,14 +204,14 @@ int main(int argc,char ** argv){
 		return EXIT_FAILURE;
 	}
 
-	printf("%s","To whom to send messages: " );
+/*	printf("%s","To whom to send messages: " );
 	fgets(recipientname,NAME_LEN,stdin);
 	str_trim_lf(recipientname,strlen(recipientname));
 
 	if(strlen(recipientname)>NAME_LEN-1 || strlen(recipientname)<2){
 		printf("Enter recipientname correctly\n");
 		return EXIT_FAILURE;
-	}
+	}*/
 	struct sockaddr_in server_addr;
 
 	//Socket Settings
@@ -208,12 +223,32 @@ int main(int argc,char ** argv){
 	server_addr.sin_addr.s_addr=inet_addr(IP);
 
 	//connect to server
-        int err=connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr));
+  int err=connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr));
 	in_err(err,"Error : connect!");
 
 	//send name
+	char buf_2[100];
 	send(sockfd,name,NAME_LEN,0);
-	send(sockfd,recipientname,NAME_LEN,0);
+	recv(sockfd,buf_2,100,0);
+	//printf("res: %s\n",buf_2 );
+	if(strcmp(buf_2,"false")!=0){
+
+		send(sockfd,buf_2,strlen(buf_2),0);
+
+	}else{
+		printf("%s","To whom to send messages: " );
+		fgets(recipientname,NAME_LEN,stdin);
+		str_trim_lf(recipientname,strlen(recipientname));
+
+		if(strlen(recipientname)>NAME_LEN-1 || strlen(recipientname)<2){
+			printf("Enter recipientname correctly\n");
+			return EXIT_FAILURE;
+		}
+		send(sockfd,recipientname,NAME_LEN,0);
+		//str_trim_lf(recipientname,strlen(recipientname));
+	}
+		//send(sockfd,recipientname,NAME_LEN,0);
+		bzero(buf_2,strlen(buf_2));
 	printf("============ WELCOME =============\n");
 
 
