@@ -13,19 +13,19 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.0.0.1"
+#define IP "127.5.0.61"
 #define true 1
 
 #define BUFFER_SZ 2048
-#define NAME_LEN 32
+#define NAME_LEN_1 32
 #define TASK_LEN 2048
 
 volatile sig_atomic_t flag=0;
 volatile sig_atomic_t last_message = 1;
 int serv_time=-1;
 int sockfd=0;
-char name[NAME_LEN];
-char recipientname[NAME_LEN];
+char name[NAME_LEN_1];
+char recipientname[NAME_LEN_1];
 char last_task[TASK_LEN];
 
 void str_overwrite_stdout(){
@@ -50,17 +50,7 @@ void str_trim_lf(char * arr,int len){
 	}
 }
 int is_task(const char * task){
-	char * ptr;
-	if(task[0=='-']){
-		ptr=malloc(strlen(task)-1);
-		for(int i=0;i<strlen(ptr);i++)
-			ptr[i]=task[i+1];
-	}else{
-		ptr=malloc(strlen(task));
-		for(int i=0;i<strlen(ptr);i++)
-			ptr[i]=task[i];
-	}
-		if(strstr(ptr,"+")!= NULL || strstr(ptr,"-")!=NULL || strstr(ptr,"*")!=NULL || strstr(ptr,"/")!=NULL)
+		if(strstr(task,"+")!= NULL || strstr(task,"-")!=NULL || strstr(task,"*")!=NULL || strstr(task,"/")!=NULL)
 		return 1;
 
 	return 0;
@@ -113,7 +103,7 @@ void  send_msg_handler(){
 		}*/
 		const char * message=json_object_to_json_string(jobj);
 		send(sockfd,message,strlen(message),0);
-	//	serv_time = -1;
+	//serv_time = -1;
 		if(strcmp(buffer,"exit")==0){
 			bzero(buffer,BUFFER_SZ);
 			break;
@@ -196,19 +186,19 @@ void recv_msg_handler(){
 int main(int argc,char ** argv){
 
 	printf("Enter your name: ");
-	fgets(name,NAME_LEN,stdin);
+	fgets(name,NAME_LEN_1,stdin);
 	str_trim_lf(name,strlen(name));
 
-	if(strlen(name)>NAME_LEN-1 || strlen(name)<2){
+	if(strlen(name)>NAME_LEN_1-1 || strlen(name)<2){
 		printf("Enter name correctly\n");
 		return EXIT_FAILURE;
 	}
 
 /*	printf("%s","To whom to send messages: " );
-	fgets(recipientname,NAME_LEN,stdin);
+	fgets(recipientname,NAME_LEN_1_1,stdin);
 	str_trim_lf(recipientname,strlen(recipientname));
 
-	if(strlen(recipientname)>NAME_LEN-1 || strlen(recipientname)<2){
+	if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
 		printf("Enter recipientname correctly\n");
 		return EXIT_FAILURE;
 	}*/
@@ -228,7 +218,7 @@ int main(int argc,char ** argv){
 
 	//send name
 	char buf_2[100];
-	send(sockfd,name,NAME_LEN,0);
+	send(sockfd,name,NAME_LEN_1,0);
 	recv(sockfd,buf_2,100,0);
 	//printf("res: %s\n",buf_2 );
 	if(strcmp(buf_2,"false")!=0){
@@ -237,17 +227,17 @@ int main(int argc,char ** argv){
 
 	}else{
 		printf("%s","To whom to send messages: " );
-		fgets(recipientname,NAME_LEN,stdin);
+		fgets(recipientname,NAME_LEN_1,stdin);
 		str_trim_lf(recipientname,strlen(recipientname));
 
-		if(strlen(recipientname)>NAME_LEN-1 || strlen(recipientname)<2){
+		if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
 			printf("Enter recipientname correctly\n");
 			return EXIT_FAILURE;
 		}
-		send(sockfd,recipientname,NAME_LEN,0);
+		send(sockfd,recipientname,NAME_LEN_1,0);
 		//str_trim_lf(recipientname,strlen(recipientname));
 	}
-		//send(sockfd,recipientname,NAME_LEN,0);
+		//send(sockfd,recipientname,NAME_LEN_1,0);
 		bzero(buf_2,strlen(buf_2));
 	printf("============ WELCOME =============\n");
 
