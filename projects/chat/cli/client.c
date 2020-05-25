@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.5.0.61"
+#define IP "127.0.0.1"
 #define true 1
 
 #define BUFFER_SZ 2048
