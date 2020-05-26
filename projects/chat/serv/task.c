@@ -1,9 +1,3 @@
-/*void in_err(int n,char * message){
-	if(n<0){
-		perror(message);
-		exit(1);
-	}
-}*/
 int stringConvertToArithmeticOperations(const char * buf){
 
 	int length=0;

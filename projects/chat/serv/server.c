@@ -14,7 +14,7 @@
 #include "task.c"
 
 #define PORT 3425
-#define IP "127.0.0.1"
+#define IP "127.0.0.71"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -121,7 +121,7 @@ void queue_add(client_t * cl){
 
 	pthread_mutex_lock(&client_mutex);
 
-   char buff[2048];
+  /* char buff[2048];
 	 struct sockaddr_in addr=cl->address;
 	 	sprintf(buff,"Insert Into SockAddr(Family,Port,Ip) Values(%d,%d,%d)",addr.sin_family,addr.sin_port,addr.sin_addr.s_addr);
 	 	if(mysql_query(conn,buff)){
@@ -141,7 +141,7 @@ void queue_add(client_t * cl){
 		res=mysql_store_result(conn);
 		while (row=mysql_fetch_row(res)) {
 		 	cl->uid=atoi(row[0]);
-	 	}
+	 	}*/
 
 	  mysql_free_result(res);
 
@@ -197,92 +197,189 @@ void send_message(char *s,client_t *cli){
 void * handle_client(void * arg){
     char buffer[BUFFER_SZ];
     char name[NAME_LEN_1];
+		char login[NAME_LEN_1];
+		char pass[NAME_LEN_1];
     char recipientname[NAME_LEN_1];
     char buff[1024];
     int leave_flag=0;
     cli_count++;
     client_t *cli = (client_t *)arg;
-    if(recv(cli->sockfd,name,NAME_LEN_1,0)<=0 || strlen(name)>32){
-        printf("Enter the name correctly\n");
-        leave_flag=1;
-    }else{
-        strcpy(cli->name,name);
-        sprintf(buff,"Update Users set Name='%s' where Id=%d",cli->name,cli->uid);
-        if(mysql_query(conn,buff)){
-            finish_with_error(conn);
-        }
-    }
-    bzero(name,NAME_LEN_1);
-    bzero(buffer,BUFFER_SZ);
-    char * gh=queue_get(cli->name);
-    send(cli->sockfd,gh,strlen(gh),0);
-        if(recv(cli->sockfd,recipientname,NAME_LEN_1,0)<=0 || strlen(recipientname)>32){
-            printf("Enter the recipientname correctly\n");
-            leave_flag=1;
-        }else{
-            strcpy(cli->recipientname,recipientname);
-            sprintf(buff,"Update Users set RecipientName='%s' where Id=%d",cli->recipientname,cli->uid);
-            if(mysql_query(conn,buff)){
-                finish_with_error(conn);
-            }
-						sprintf(buff,"Select count(*)from Users Where Name='%s' and RecipientName='%s'",cli->name,cli->recipientname);
+		char temp_1[2048];
+
+		recv(cli->sockfd,temp_1,2048,0);
+
+		struct json_object * json_parser_1;
+		struct json_object * jlog;
+		struct json_object * jIn_Up;
+
+		json_parser_1=json_tokener_parse(temp_1);
+		json_object_object_get_ex(json_parser_1,"Login",&jlog);
+		json_object_object_get_ex(json_parser_1,"In_Up",&jIn_Up);
+
+		strcpy(login,json_object_get_string(jlog));
+	//	printf("login: %s\n",login );
+
+    const char *InUp=json_object_get_string(jIn_Up);
+		if(strcmp(InUp,"Sign In")==0){
+			sprintf(buff,"Select count(*) from Users  where Login='%s'",login);
+			if(mysql_query(conn,buff)){
+					finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+
+			int con1;
+			while(row=mysql_fetch_row(res)){
+				con1=atoi(row[0]);
+			}
+			if(con1==1){
+				sprintf(buff,"Enter your password:");
+				send(cli->sockfd,buff,strlen(buff),0);
+			}else{
+				sprintf(buff,"Invalid login");
+				send(cli->sockfd,buff,strlen(buff),0);
+			}
+
+			recv(cli->sockfd,pass,NAME_LEN_1,0);
+
+			sprintf(buff,"Select MD5('%s')",pass);
+			if(mysql_query(conn,buff)){
+					finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+
+			char  hashpass[200];
+			while(row=mysql_fetch_row(res)){
+			strcpy(hashpass, row[0]);
+			}
+
+			sprintf(buff,"Select Password from Users where Login='%s'",login);
+			if(mysql_query(conn,buff)){
+					finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+
+			char  basepass[200];
+			while(row=mysql_fetch_row(res)){
+			strcpy(basepass, row[0]);
+			}
+			if(strcmp(basepass,hashpass)==0){
+				sprintf(buff,"Select Name,Id from Users where Login='%s'",login);
+				if(mysql_query(conn,buff)){
+						finish_with_error(conn);
+				}
+				res=mysql_store_result(conn);
+
+				char  baseName[32];
+				while(row=mysql_fetch_row(res)){
+				strcpy(baseName, row[0]);
+				strcpy(cli->name,row[0]);
+				cli->uid=atoi(row[1]);
+				}
+				printf("\n" );
+				sprintf(buff,"%s has joined\n",baseName);
+				send(cli->sockfd,buff,strlen(buff),0);
+				printf("%s",buff);
+
+				if(recv(cli->sockfd,recipientname,NAME_LEN_1,0)<=0 || strlen(recipientname)>32){
+						printf("Enter the recipientname correctly\n");
+						leave_flag=1;
+				}else{
+						strcpy(cli->recipientname,recipientname);
+						sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
+						if(mysql_query(conn,buff)){
+								finish_with_error(conn);
+						}
+					}
+
+					sprintf(buff,"Update Users set Online='%s',Sockfd=%d where Login='%s'","Yes",cli->sockfd,login);
+					if(mysql_query(conn,buff)){
+							 finish_with_error(conn);
+					 }
+
+			}else{
+				sprintf(buff,"Invalid password");
+				send(cli->sockfd,buff,strlen(buff),0);
+			}
+
+		}else{
+
+			sprintf(buff,"Select count(*) from Users  where Login='%s'",login);
+			if(mysql_query(conn,buff)){
+					finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+
+			int con2;
+			while(row=mysql_fetch_row(res)){
+				con2=atoi(row[0]);
+			}
+			printf("%d\n",con2 );
+			if(con2>0){
+				sprintf(buff,"Matching login!");
+				send(cli->sockfd,buff,strlen(buff),0);
+			}else{
+				sprintf(buff,"Insert Into Users(Login) Values('%s')",login);
+				if(mysql_query(conn,buff)){
+						finish_with_error(conn);
+				}
+				sprintf(buff,"Enter your name:");
+				send(cli->sockfd,buff,strlen(buff),0);
+			}
+
+    	if(recv(cli->sockfd,name,NAME_LEN_1,0)<=0 || strlen(name)>32){
+        	printf("Enter the name correctly\n");
+        	leave_flag=1;
+    	}else{
+        	strcpy(cli->name,name);
+        	sprintf(buff,"Update Users set Name='%s' where Login='%s'",cli->name,login);
+        	if(mysql_query(conn,buff)){
+            	finish_with_error(conn);
+        	}
+    	}
+			if(recv(cli->sockfd,recipientname,NAME_LEN_1,0)<=0 || strlen(recipientname)>32){
+					printf("Enter the recipientname correctly\n");
+					leave_flag=1;
+			}else{
+					strcpy(cli->recipientname,recipientname);
+					sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
+					if(mysql_query(conn,buff)){
+							finish_with_error(conn);
+					}
+			}
+			recv(cli->sockfd,pass,NAME_LEN_1,0);
+
+			sprintf(buff,"Select MD5('%s')",pass);
+			if(mysql_query(conn,buff)){
+					finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+
+			char  hashpass[200];
+			while(row=mysql_fetch_row(res)){
+			strcpy(hashpass, row[0]);
+			}
+			sprintf(buff,"Update Users set Sockfd=%d,Password='%s',Online='%s' where Login='%s'",cli->sockfd,hashpass,"Yes",login);
+			if(mysql_query(conn,buff)){
+					finish_with_error(conn);
+			}
+						sprintf(buff,"Select Name,Id from Users where Login='%s'",login);
 						if(mysql_query(conn,buff)){
 								finish_with_error(conn);
 						}
 						res=mysql_store_result(conn);
-						int count;
-				 	  while (row=mysql_fetch_row(res)) {
-				     	count=atoi(row[0]);
-				    }
 
-				 	 if(count>1){
-						 sprintf(buff,"Select * from SockAddr Where Id=(Select Sockaddr_Id from Users where Id=%d)",cli->uid);
-						 if(mysql_query(conn,buff)){
-							 finish_with_error(conn);
-						 }
-						 res=mysql_store_result(conn);
-						 struct sockaddr_in ad;
-						 while(row=mysql_fetch_row(res)){
-							 ad.sin_family=atoi(row[1]);
-							 ad.sin_port=atoi(row[2]);
-							 ad.sin_addr.s_addr=atoi(row[3]);
-						 }
-						 sprintf(buff,"Delete from SockAddr Where Id=(Select Sockaddr_Id from Users Where Id=%d )",cli->uid);
-						 if(mysql_query(conn,buff)){
-				 				finish_with_error(conn);
-							}
-
-						 sprintf(buff,"Delete from Users Where Id=%d",cli->uid);
-						 if(mysql_query(conn,buff)){
-				 				finish_with_error(conn);
-							}
-								sprintf(buff,"Update Users set Online='%s',Sockfd=%d where Name='%s' and RecipientName='%s'","Yes",cli->sockfd,cli->name,cli->recipientname);;
-								if(mysql_query(conn,buff)){
-									 finish_with_error(conn);
-							 }
-							 sprintf(buff,"Select * from Users Where Name='%s' and RecipientName='%s'",cli->name,cli->recipientname);
-					 		if(mysql_query(conn,buff)){
-					 			finish_with_error(conn);
-					 		}
-
-					 		res=mysql_store_result(conn);
-					 		while (row=mysql_fetch_row(res)) {
-					 		 	cli->uid=atoi(row[0]);
-								sprintf(buff,"Update SockAddr set Family = %d,Port = %d,IP = %d where Id=%d ",ad.sin_family, ad.sin_port,ad.sin_addr.s_addr,atoi(row[4]));
-								if(mysql_query(conn,buff)){
-						 			finish_with_error(conn);
-						 		}
-					 	 	}
-
-				 		}else{
-            	printf("\n" );
-            	sprintf(buffer,"%s has joined\n",cli->name);
-            	printf("%s",buffer);
+						char  baseName[32];
+						while(row=mysql_fetch_row(res)){
+						strcpy(baseName, row[0]);
+						cli->uid=atoi(row[1]);
 						}
+						printf("\n" );
+						sprintf(buffer,"%s has joined\n",baseName);
+						printf("%s",buffer);
         }
-            bzero(recipientname,NAME_LEN_1);
-            bzero(buffer,BUFFER_SZ);
-            char tasks[2048];
+    bzero(recipientname,NAME_LEN_1);
+    bzero(buffer,BUFFER_SZ);
+    char tasks[2048];
     while(true){
         if(leave_flag){
             break;
@@ -295,6 +392,55 @@ void * handle_client(void * arg){
         struct json_object *jserv_sec;
         struct json_object *jcli_sec;
         struct json_object *jobj;
+				if(strstr(buffer,"Do I have a task?")!=NULL){
+									sprintf(buff,"Select Online from Users Where Name='%s'",cli->recipientname);
+											if(mysql_query(conn,buff)){
+															finish_with_error(conn);
+											}
+											res=mysql_store_result(conn);
+											 char rp[32];
+											while(row=mysql_fetch_row(res)){
+															strcpy(rp,row[0]);
+											}
+											if(strcmp(rp,"Yes")==0){
+													sprintf(buff,"Select Task from Expressions where User='%s' and RecipientName='%s' and Transmitted='%s'",cli->recipientname,cli->name,"No");
+													if(mysql_query(conn,buff)){
+																	finish_with_error(conn);
+													}
+													res=mysql_store_result(conn);
+													 char *rpp[10];
+													 int index=0;
+													while(row=mysql_fetch_row(res)){
+																	rpp[index++]=row[0];
+													}
+													for(int i=0;i<index;i++){
+															time_t currenttime;
+															time(&currenttime);
+															struct tm * mytime=localtime(&currenttime);
+															jserv_sec=json_object_new_int(mytime->tm_hour*3600+mytime->tm_min*60+mytime->tm_sec);
+															jobj=json_object_new_object();
+															jmessage=json_object_new_string(rpp[i]);
+															jname=json_object_new_string(cli->recipientname);
+															json_object_object_get_ex(parser_json,"Task",&jtask);
+															//json_object_object_get_ex(parser_json,"Name",&jname);
+															json_object_object_add(jobj,"Name",jname);
+															json_object_object_add(jobj,"Message",jmessage);
+															json_object_object_add(jobj,"ServerSec",jserv_sec);
+															const char * t_1=json_object_get_string(jobj);
+															char  s_buffer[strlen(t_1)];
+															for(int i=0;i<strlen(t_1);i++){
+																			s_buffer[i]=t_1[i];
+															}
+															send(cli->sockfd,s_buffer,strlen(s_buffer),0);
+															sprintf(buff,"Update Expressions Set Transmitted='%s' Where User='%s' and Task='%s'","Yes",cli->recipientname,rpp[i]);
+															if(mysql_query(conn,buff)){
+																			finish_with_error(conn);
+															}
+															sleep(15);
+													}
+							}
+						continue;
+					}
         if(strstr(buffer,"exit") !=NULL){
             jobj=json_object_new_object();
             jmessage=json_object_new_string("has left");
@@ -368,41 +514,6 @@ void * handle_client(void * arg){
                             strcpy(rp,row[0]);
                         }
                         if(strcmp(rp,"Yes")==0){
-													sprintf(buff,"Select Task from Expressions where User='%s' and RecipientName='%s' and Transmitted='%s'",cli->name,cli->recipientname,"No");
-													if(mysql_query(conn,buff)){
-															finish_with_error(conn);
-													}
-													res=mysql_store_result(conn);
-													 char *rpp[10];
-													 int index=0;
-													while(row=mysql_fetch_row(res)){
-															rpp[index++]=row[0];
-													}
-
-													for(int i=0;i<index;i++){
-														time_t currenttime;
-                            time(&currenttime);
-                            struct tm * mytime=localtime(&currenttime);
-                            jserv_sec=json_object_new_int(mytime->tm_hour*3600+mytime->tm_min*60+mytime->tm_sec);
-                            jobj=json_object_new_object();
-														jmessage=json_object_new_string(rpp[i]);
-														json_object_object_get_ex(parser_json,"Task",&jtask);
-														json_object_object_get_ex(parser_json,"Name",&jname);
-														json_object_object_add(jobj,"Name",jname);
-														json_object_object_add(jobj,"Message",jmessage);
-														json_object_object_add(jobj,"ServerSec",jserv_sec);
-														const char * t_1=json_object_get_string(jobj);
-														char  s_buffer[strlen(t_1)];
-														for(int i=0;i<strlen(t_1);i++){
-																s_buffer[i]=t_1[i];
-														}
-														send_message(s_buffer,cli);
-														sprintf(buff,"Update Expressions Set Transmitted='%s' Where User='%s' and Task='%s'","Yes",cli->name,rpp[i]);
-														if(mysql_query(conn,buff)){
-																finish_with_error(conn);
-														}
-														sleep(15);
-													}
 														time_t currenttime;
                             time(&currenttime);
                             struct tm * mytime=localtime(&currenttime);
@@ -411,6 +522,7 @@ void * handle_client(void * arg){
                             json_object_object_get_ex(parser_json,"Message",&jmessage);
                             json_object_object_get_ex(parser_json,"Task",&jtask);
                             json_object_object_get_ex(parser_json,"Name",&jname);
+													//	printf("%s\n",json_object_get_string(jname));
                             json_object_object_add(jobj,"Name",jname);
                             json_object_object_add(jobj,"Message",jmessage);
                             json_object_object_add(jobj,"ServerSec",jserv_sec);

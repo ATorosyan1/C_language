@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.0.0.1"
+#define IP "127.0.0.71"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -25,6 +25,8 @@ volatile sig_atomic_t last_message = 1;
 int serv_time=-1;
 int sockfd=0;
 char name[NAME_LEN_1];
+char login[NAME_LEN_1];
+char password[NAME_LEN_1];
 char recipientname[NAME_LEN_1];
 char last_task[TASK_LEN];
 
@@ -68,14 +70,14 @@ void  send_msg_handler(){
 	char buffer[BUFFER_SZ]={};
 	while(true){
 		str_overwrite_stdout();
+
+		//input buffer
+		fgets(buffer,BUFFER_SZ,stdin);
+		str_trim_lf(buffer,BUFFER_SZ);
 		time_t currenttime;
 		time(&currenttime);
 
 		struct tm * mytime=localtime(&currenttime);
-		//input buffer
-		fgets(buffer,BUFFER_SZ,stdin);
-		str_trim_lf(buffer,BUFFER_SZ);
-
 
 		struct json_object * jobj=json_object_new_object();
 		struct json_object *jmessage=json_object_new_string(buffer);
@@ -98,12 +100,9 @@ void  send_msg_handler(){
 			if(falg_1==0){
 				last_message=1;
 			}
-		}/*else{
-			last_message=-1;
-		}*/
+		}
 		const char * message=json_object_to_json_string(jobj);
 		send(sockfd,message,strlen(message),0);
-	//serv_time = -1;
 		if(strcmp(buffer,"exit")==0){
 			bzero(buffer,BUFFER_SZ);
 			break;
@@ -137,6 +136,7 @@ void recv_msg_handler(){
 			int flag_3=0;
 			if(is_task(json_object_get_string(jmessage))==1){
 				flag_2=1;
+				printf("\n\nFor this task given 20 seconds!");
 				strcpy(last_task,json_object_get_string(jmessage));
 				json_object_object_get_ex(json_parser,"ServerSec",&jserv_time);
 				serv_time=json_object_get_int(jserv_time);
@@ -156,7 +156,7 @@ void recv_msg_handler(){
 			 	t_h=mytime_2->tm_hour*3600+mytime_2->tm_min*60+mytime_2->tm_sec;
 
 			}
-			printf("\n\n");
+			printf("\n");
 
 			sprintf(buffer,"%s: %s ",json_object_get_string(jname),json_object_get_string(jmessage));
 
@@ -185,23 +185,6 @@ void recv_msg_handler(){
 }
 int main(int argc,char ** argv){
 
-	printf("Enter your name: ");
-	fgets(name,NAME_LEN_1,stdin);
-	str_trim_lf(name,strlen(name));
-
-	if(strlen(name)>NAME_LEN_1-1 || strlen(name)<2){
-		printf("Enter name correctly\n");
-		return EXIT_FAILURE;
-	}
-
-/*	printf("%s","To whom to send messages: " );
-	fgets(recipientname,NAME_LEN_1_1,stdin);
-	str_trim_lf(recipientname,strlen(recipientname));
-
-	if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
-		printf("Enter recipientname correctly\n");
-		return EXIT_FAILURE;
-	}*/
 	struct sockaddr_in server_addr;
 
 	//Socket Settings
@@ -216,29 +199,96 @@ int main(int argc,char ** argv){
   int err=connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr));
 	in_err(err,"Error : connect!");
 
-	//send name
-	char buf_2[100];
-	send(sockfd,name,NAME_LEN_1,0);
-	recv(sockfd,buf_2,100,0);
-	//printf("res: %s\n",buf_2 );
-	if(strcmp(buf_2,"false")!=0){
+	char b[10];
+	printf("%s\n","Sign In ----1\nSign Up ----2\n" );
+	printf("%s",":" );
+	fgets(b,10,stdin);
+	str_trim_lf(b,strlen(b));
 
-		send(sockfd,buf_2,strlen(buf_2),0);
+	printf("Enter your login: ");
+	fgets(login,NAME_LEN_1,stdin);
+	str_trim_lf(login,strlen(login));
 
-	}else{
+	if(strcmp(b,"1")==0){
+		struct json_object * job=json_object_new_object();
+		struct json_object *jlog=json_object_new_string(login);
+		struct json_object *jIn_Up=json_object_new_string("Sign In");
+
+		json_object_object_add(job,"Login",jlog);
+		json_object_object_add(job,"In_Up",jIn_Up);
+
+		const char * ptr_1=json_object_to_json_string(job);
+		send(sockfd,ptr_1,strlen(ptr_1),0);
+
+		char b1[1024];
+		recv(sockfd,b1,1024,0);
+		if(strstr(b1,"Invalid login")!=NULL){
+				return EXIT_FAILURE;
+			}
+		printf("%s","Enter your password:" );
+		fgets(password,NAME_LEN_1,stdin);
+		str_trim_lf(password,strlen(password));
+		send(sockfd,password,strlen(password),0);
+
+		bzero(b1,1024);
+		recv(sockfd,b1,1024,0);
+		if(strstr(b1,"Invalid password")!=NULL){
+				return EXIT_FAILURE;
+			}
 		printf("%s","To whom to send messages: " );
 		fgets(recipientname,NAME_LEN_1,stdin);
 		str_trim_lf(recipientname,strlen(recipientname));
+			if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
+				printf("Enter recipientname correctly\n");
+				return EXIT_FAILURE;
+			}
+			send(sockfd,recipientname,NAME_LEN_1,0);
 
-		if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
-			printf("Enter recipientname correctly\n");
-			return EXIT_FAILURE;
+	}else{
+
+		struct json_object * job=json_object_new_object();
+		struct json_object *jlog=json_object_new_string(login);
+		struct json_object *jIn_Up=json_object_new_string("Sign Up");
+
+		json_object_object_add(job,"Login",jlog);
+		json_object_object_add(job,"In_Up",jIn_Up);
+
+		const char * ptr_2=json_object_to_json_string(job);
+		send(sockfd,ptr_2,strlen(ptr_2),0);
+
+		char b2[1024];
+		recv(sockfd,b2,1024,0);
+
+		if(strstr(b2,"Matching login!")!=NULL){
+			printf("%s\n",b2 );
+			return EXIT_SUCCESS;
+		}else{
+			printf("Enter your name: ");
+			fgets(name,NAME_LEN_1,stdin);
+			str_trim_lf(name,strlen(name));
+
+			if(strlen(name)>NAME_LEN_1-1 || strlen(name)<2){
+				printf("Enter name correctly\n");
+				return EXIT_FAILURE;
+			}
+		  send(sockfd,name,NAME_LEN_1,0);
+
+			printf("%s","To whom to send messages: " );
+			fgets(recipientname,NAME_LEN_1,stdin);
+			str_trim_lf(recipientname,strlen(recipientname));
+
+			if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
+				printf("Enter recipientname correctly\n");
+				return EXIT_FAILURE;
+			}
+			send(sockfd,recipientname,NAME_LEN_1,0);
+
+			printf("%s","Enter your password:" );
+			fgets(password,NAME_LEN_1,stdin);
+			str_trim_lf(password,strlen(password));
+			send(sockfd,password,strlen(password),0);
 		}
-		send(sockfd,recipientname,NAME_LEN_1,0);
-		//str_trim_lf(recipientname,strlen(recipientname));
 	}
-		//send(sockfd,recipientname,NAME_LEN_1,0);
-		bzero(buf_2,strlen(buf_2));
 	printf("============ WELCOME =============\n");
 
 
