@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.0.0.71"
+#define IP "127.0.1.54"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -235,14 +235,14 @@ int main(int argc,char ** argv){
 		if(strstr(b1,"Invalid password")!=NULL){
 				return EXIT_FAILURE;
 			}
-		printf("%s","To whom to send messages: " );
+	/*	printf("%s","To whom to send messages: " );
 		fgets(recipientname,NAME_LEN_1,stdin);
 		str_trim_lf(recipientname,strlen(recipientname));
 			if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
 				printf("Enter recipientname correctly\n");
 				return EXIT_FAILURE;
 			}
-			send(sockfd,recipientname,NAME_LEN_1,0);
+			send(sockfd,recipientname,NAME_LEN_1,0);*/
 
 	}else{
 
@@ -273,7 +273,7 @@ int main(int argc,char ** argv){
 			}
 		  send(sockfd,name,NAME_LEN_1,0);
 
-			printf("%s","To whom to send messages: " );
+		/*	printf("%s","To whom to send messages: " );
 			fgets(recipientname,NAME_LEN_1,stdin);
 			str_trim_lf(recipientname,strlen(recipientname));
 
@@ -281,7 +281,7 @@ int main(int argc,char ** argv){
 				printf("Enter recipientname correctly\n");
 				return EXIT_FAILURE;
 			}
-			send(sockfd,recipientname,NAME_LEN_1,0);
+			send(sockfd,recipientname,NAME_LEN_1,0);*/
 
 			printf("%s","Enter your password:" );
 			fgets(password,NAME_LEN_1,stdin);
@@ -291,6 +291,22 @@ int main(int argc,char ** argv){
 	}
 	printf("============ WELCOME =============\n");
 
+	printf("%s\n","To whom to send messages: " );
+	char * names[100];
+	char ttr[100];
+	char p1[20];
+	int in=0;
+	recv(sockfd,p1,strlen(p1),0);
+	for(int i=0;i<atoi(p1);i++){
+		bzero(ttr,100);
+		recv(sockfd,ttr,100,0);
+	  names[i]=ttr;
+		printf("%s--%d,\n", names[i],i);
+	}
+	printf("Enter:");
+	fgets(p1,10,stdin);
+	str_trim_lf(p1,strlen(p1));
+	send(sockfd,p1,strlen(p1),0);
 
 	pthread_t send_msg_thread;
 	pthread_t recv_msg_thread;
