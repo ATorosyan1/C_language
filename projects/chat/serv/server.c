@@ -14,7 +14,7 @@
 #include "task.c"
 
 #define PORT 3425
-#define IP "127.0.1.54"
+#define IP "127.0.2.35"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -92,7 +92,7 @@ void in_err(int n,char * message){
 		exit(1);
 	}
 }
-char * queue_get(char * name){
+/*char * queue_get(char * name){
 
  	  char buff[2048];
     sprintf(buff,"Select count(name)  from Users Where RecipientName='%s'",name);
@@ -117,8 +117,8 @@ char * queue_get(char * name){
 		}
 	}
    return "false";
-}
-void queue_add(client_t * cl){
+}*/
+/*void queue_add(client_t * cl){
 
 	pthread_mutex_lock(&client_mutex);
 
@@ -142,12 +142,12 @@ void queue_add(client_t * cl){
 		res=mysql_store_result(conn);
 		while (row=mysql_fetch_row(res)) {
 		 	cl->uid=atoi(row[0]);
-	 	}*/
+	 	}
 
 	  mysql_free_result(res);
 
 	pthread_mutex_unlock(&client_mutex);
-}
+} */
 
 void queue_remove(int uid){
 
@@ -158,8 +158,6 @@ void queue_remove(int uid){
 	if( mysql_query(conn,buff)){
 		finish_with_error(conn);
 	}
-
-	  //mysql_free_result(res);
 
 	pthread_mutex_unlock(&client_mutex);
 }
@@ -219,7 +217,6 @@ void * handle_client(void * arg){
 
 		strcpy(login,json_object_get_string(jlog));
 		strcpy(cli->log,login);
-		printf("login:%s\n",cli->log );
 
     const char *InUp=json_object_get_string(jIn_Up);
 		if(strcmp(InUp,"Sign In")==0){
@@ -279,19 +276,8 @@ void * handle_client(void * arg){
 				}
 				printf("\n" );
 				sprintf(buff,"%s has joined\n",baseName);
-				send(cli->sockfd,buff,strlen(buff),0);
+				send(cli->sockfd,baseName,strlen(baseName),0);
 				printf("%s",buff);
-
-				/*if(recv(cli->sockfd,recipientname,NAME_LEN_1,0)<=0 || strlen(recipientname)>32){
-						printf("Enter the recipientname correctly\n");
-						leave_flag=1;
-				}else{
-						strcpy(cli->recipientname,recipientname);
-						sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
-						if(mysql_query(conn,buff)){
-								finish_with_error(conn);
-						}
-					}*/
 
 					sprintf(buff,"Update Users set Online='%s',Sockfd=%d where Login='%s'","Yes",cli->sockfd,login);
 					if(mysql_query(conn,buff)){
@@ -338,16 +324,6 @@ void * handle_client(void * arg){
             	finish_with_error(conn);
         	}
     	}
-		/*	if(recv(cli->sockfd,recipientname,NAME_LEN_1,0)<=0 || strlen(recipientname)>32){
-					printf("Enter the recipientname correctly\n");
-					leave_flag=1;
-			}else{
-					strcpy(cli->recipientname,recipientname);
-					sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
-					if(mysql_query(conn,buff)){
-							finish_with_error(conn);
-					}
-			}*/
 			recv(cli->sockfd,pass,NAME_LEN_1,0);
 
 			sprintf(buff,"Select MD5('%s')",pass);
@@ -397,8 +373,8 @@ void * handle_client(void * arg){
 		sprintf(p1,"%d",in);
 		send(cli->sockfd,p1,strlen(p1),0);
 		for(int i=0;i<in;i++){
-			send(cli->sockfd,names[i],strlen(names[i]),0);
 			sleep(1);
+			send(cli->sockfd,names[i],strlen(names[i]),0);
 		}
 		bzero(p1,10);
 		recv(cli->sockfd,p1,10,0);
@@ -407,16 +383,31 @@ void * handle_client(void * arg){
 		if(mysql_query(conn,buff)){
 				finish_with_error(conn);
 			}
+			sprintf(buff,"Select count(*) from Expressions where User='%s' and RecipientName='%s' and Transmitted='%s'",cli->recipientname,cli->name,"No");
+			if(mysql_query(conn,buff)){
+							finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+			int h1;
+			while(row=mysql_fetch_row(res)){
+							h1=atoi(row[0]);
+							send(cli->sockfd,row[0],strlen(row[0]),0);
+			}
+			if(h1>0){
+				recv(cli->sockfd,p1,10,0);
+				if(atoi(p1)==1){
+					  bzero(buffer,BUFFER_SZ);
+						strcpy(buffer,"Do I have a task?");
+				}
+			}
 
-    bzero(recipientname,NAME_LEN_1);
-    bzero(buffer,BUFFER_SZ);
     char tasks[2048];
     while(true){
         if(leave_flag){
             break;
         }
-        int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
-        struct json_object * parser_json=json_tokener_parse(buffer);
+
+        struct json_object * parser_json;
         struct json_object * jname;
         struct json_object *jmessage;
         struct json_object *jtask;
@@ -452,8 +443,6 @@ void * handle_client(void * arg){
 															jobj=json_object_new_object();
 															jmessage=json_object_new_string(rpp[i]);
 															jname=json_object_new_string(cli->recipientname);
-															json_object_object_get_ex(parser_json,"Task",&jtask);
-															//json_object_object_get_ex(parser_json,"Name",&jname);
 															json_object_object_add(jobj,"Name",jname);
 															json_object_object_add(jobj,"Message",jmessage);
 															json_object_object_add(jobj,"ServerSec",jserv_sec);
@@ -470,8 +459,11 @@ void * handle_client(void * arg){
 															sleep(5);
 													}
 							}
+							bzero(buffer,BUFFER_SZ);
 						continue;
 					}
+					int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
+	        parser_json=json_tokener_parse(buffer);
         if(strstr(buffer,"exit") !=NULL){
             jobj=json_object_new_object();
             jmessage=json_object_new_string("has left");
@@ -480,6 +472,7 @@ void * handle_client(void * arg){
             json_object_object_add(jobj,"Message",jmessage);
             bzero(buffer,BUFFER_SZ);
             const char * ptr=json_object_get_string(jname);
+						printf("%s\n",ptr );
             printf("\n%s has left\n",ptr );
             sprintf(buffer,"%s\n",json_object_get_string(jobj));
             send_message(buffer,cli);
@@ -633,7 +626,7 @@ int main(){
 	  cli->sockfd=connfd;
 	  cli->uid=uid++;
 
-	  queue_add(cli);
+	//  queue_add(cli);
 	  pthread_create(&tid,NULL,&handle_client,(void *) cli);
 	  sleep(1);
 	}

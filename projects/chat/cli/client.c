@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.0.1.54"
+#define IP "127.0.2.35"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -22,6 +22,7 @@
 
 volatile sig_atomic_t flag=0;
 volatile sig_atomic_t last_message = 1;
+volatile sig_atomic_t  tt = 0;
 int serv_time=-1;
 int sockfd=0;
 char name[NAME_LEN_1];
@@ -38,7 +39,9 @@ void str_overwrite_stdout(){
 		last_message = -1;
 		goto p;
 	}else{
-		printf("\r%s",">" );
+		if(tt!=1){
+	   	printf("\r%s",">" );
+		}
 	}
 	p:
 	fflush(stdout);
@@ -119,6 +122,7 @@ void recv_msg_handler(){
 	while(true){
 
 		bzero(message,BUFFER_SZ);
+		tt=0;
 		int receive=recv(sockfd,message,BUFFER_SZ,0);
 
 		struct json_object * json_parser;
@@ -157,7 +161,7 @@ void recv_msg_handler(){
 
 			}
 			printf("\n");
-
+			bzero(buffer,BUFFER_SZ);
 			sprintf(buffer,"%s: %s ",json_object_get_string(jname),json_object_get_string(jmessage));
 
 			printf("%s\n",buffer);
@@ -170,6 +174,7 @@ void recv_msg_handler(){
 
 			if(flag_4==0){
 				if(flag_2==1){
+					tt=1;
 					last_message=0;
 				}
 				if(flag_3==1){
@@ -201,7 +206,7 @@ int main(int argc,char ** argv){
 
 	char b[10];
 	printf("%s\n","Sign In ----1\nSign Up ----2\n" );
-	printf("%s",":" );
+	printf("%s",">" );
 	fgets(b,10,stdin);
 	str_trim_lf(b,strlen(b));
 
@@ -234,15 +239,9 @@ int main(int argc,char ** argv){
 		recv(sockfd,b1,1024,0);
 		if(strstr(b1,"Invalid password")!=NULL){
 				return EXIT_FAILURE;
+			}else{
+				strcpy(name,b1);
 			}
-	/*	printf("%s","To whom to send messages: " );
-		fgets(recipientname,NAME_LEN_1,stdin);
-		str_trim_lf(recipientname,strlen(recipientname));
-			if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
-				printf("Enter recipientname correctly\n");
-				return EXIT_FAILURE;
-			}
-			send(sockfd,recipientname,NAME_LEN_1,0);*/
 
 	}else{
 
@@ -258,7 +257,6 @@ int main(int argc,char ** argv){
 
 		char b2[1024];
 		recv(sockfd,b2,1024,0);
-
 		if(strstr(b2,"Matching login!")!=NULL){
 			printf("%s\n",b2 );
 			return EXIT_SUCCESS;
@@ -273,15 +271,6 @@ int main(int argc,char ** argv){
 			}
 		  send(sockfd,name,NAME_LEN_1,0);
 
-		/*	printf("%s","To whom to send messages: " );
-			fgets(recipientname,NAME_LEN_1,stdin);
-			str_trim_lf(recipientname,strlen(recipientname));
-
-			if(strlen(recipientname)>NAME_LEN_1-1 || strlen(recipientname)<2){
-				printf("Enter recipientname correctly\n");
-				return EXIT_FAILURE;
-			}
-			send(sockfd,recipientname,NAME_LEN_1,0);*/
 
 			printf("%s","Enter your password:" );
 			fgets(password,NAME_LEN_1,stdin);
@@ -297,17 +286,30 @@ int main(int argc,char ** argv){
 	char p1[20];
 	int in=0;
 	recv(sockfd,p1,strlen(p1),0);
+	bzero(ttr,100);
 	for(int i=0;i<atoi(p1);i++){
-		bzero(ttr,100);
 		recv(sockfd,ttr,100,0);
 	  names[i]=ttr;
-		printf("%s--%d,\n", names[i],i);
+		printf("%s-->%d,\n", names[i],i);
+		bzero(ttr,100);
 	}
-	printf("Enter:");
+	printf(">");
 	fgets(p1,10,stdin);
 	str_trim_lf(p1,strlen(p1));
 	send(sockfd,p1,strlen(p1),0);
 
+	bzero(p1,20);
+	recv(sockfd,p1,20,0);
+	if(atoi(p1)>0){
+		printf("You have %s unread message!\n",p1 );
+		printf("Read?\n");
+		printf("Yes-->1\nNo-->2\n" );
+		printf(">");
+		bzero(p1,10);
+		fgets(p1,10,stdin);
+		str_trim_lf(p1,strlen(p1));
+		send(sockfd,p1,strlen(p1),0);
+	}
 	pthread_t send_msg_thread;
 	pthread_t recv_msg_thread;
 
