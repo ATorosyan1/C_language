@@ -14,7 +14,7 @@
 #include "task.c"
 
 #define PORT 3425
-#define IP "127.0.2.98"
+#define IP "127.0.5.6"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -29,6 +29,7 @@ static char * host="localhost";
 static char * user="root";
 static char * password="Arunchandel @ 123";
 static char * dbname="chat_db";
+
 
 unsigned int port=3306;
 static char * unix_socket = NULL;
@@ -194,6 +195,8 @@ void send_message(char *s,client_t *cli){
 }
 
 void * handle_client(void * arg){
+		char  *names[32];
+		int in=0;
     char buffer[BUFFER_SZ];
     char name[NAME_LEN_1];
 		char login[NAME_LEN_1];
@@ -364,8 +367,6 @@ void * handle_client(void * arg){
 		}
 		res=mysql_store_result(conn);
 
-		char  *names[32];
-		int in=0;
 		while(row=mysql_fetch_row(res)){
 		  names[in++]=row[0];
 		}
@@ -377,12 +378,12 @@ void * handle_client(void * arg){
 			send(cli->sockfd,names[i],strlen(names[i]),0);
 		}
 		bzero(p1,10);
-		recv(cli->sockfd,p1,10,0);
+		/*recv(cli->sockfd,p1,10,0);
 		strcpy(cli->recipientname,names[atoi(p1)]);
 		sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
 		if(mysql_query(conn,buff)){
 				finish_with_error(conn);
-			}
+			}*/
 
 			sprintf(buff,"Select count(*) from Expressions where User='%s' and Transmitted='%s' and Readed='%s'",cli->name,"Yes","No");
 			if(mysql_query(conn,buff)){
@@ -504,14 +505,27 @@ void * handle_client(void * arg){
 					}
 					int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
 	        parser_json=json_tokener_parse(buffer);
-					json_object_object_get_ex(parser_json,"Rname",&jrname);
-					const char *temp22=json_object_get_string(jrname);
-					if(strcmp(temp22,"-1")!=0){
+				//	json_object_object_get_ex(parser_json,"Rname",&jrname);
+					//const char *temp22=json_object_get_string(jrname);
+				/*	if(strcmp(temp22,"-1")!=0){
 						strcpy(cli->recipientname,temp22);
 						sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
 						if(mysql_query(conn,buff)){
 								finish_with_error(conn);
 							}
+					}*/
+					if(strstr(buffer,"menu") != NULL){
+						char p33[20];
+						bzero(p33,20);
+						recv(cli->sockfd,p33,20,0);
+						strcpy(cli->recipientname,names[atoi(p33)-1]);
+						sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
+						if(mysql_query(conn,buff)){
+								finish_with_error(conn);
+							}
+						printf("%s\n",names[atoi(p33)-1] );
+						bzero(buffer,BUFFER_SZ);
+						continue;
 					}
         if(strstr(buffer,"exit") !=NULL){
             jobj=json_object_new_object();
@@ -663,6 +677,10 @@ int main(){
 	//Socket Settings
 	listenfd=socket(AF_INET,SOCK_STREAM,0);
 	in_err(listenfd,"Error:socket!");
+
+	const int opt = 1;
+  setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+  setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
 
 	serv_addr.sin_family=AF_INET;
 	serv_addr.sin_port=htons(PORT);

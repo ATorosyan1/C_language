@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.0.2.98"
+#define IP "127.0.5.6"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -30,6 +30,8 @@ char login[NAME_LEN_1];
 char password[NAME_LEN_1];
 char recipientname[NAME_LEN_1]="-1";
 char last_task[TASK_LEN];
+char * names[100];
+int in=0;
 
 void str_overwrite_stdout(){
 	if(last_message==1){
@@ -85,14 +87,14 @@ void  send_msg_handler(){
 		struct json_object * jobj=json_object_new_object();
 		struct json_object *jmessage=json_object_new_string(buffer);
 		struct json_object *jname=json_object_new_string(name);
-		struct json_object *jrname=json_object_new_string(recipientname);
+	//	struct json_object *jrname=json_object_new_string(recipientname);
 		struct json_object *jtask=json_object_new_string(last_task);
 		struct json_object *jserv_sec=json_object_new_int(serv_time);
 		struct json_object *jclient_sec=json_object_new_int(mytime->tm_hour*3600+mytime->tm_min*60+mytime->tm_sec);
 
 		json_object_object_add(jobj,"Name",jname);
 		json_object_object_add(jobj,"Message",jmessage);
-		json_object_object_add(jobj,"Rname",jrname);
+	//	json_object_object_add(jobj,"Rname",jrname);
 
 		int falg_1=0;
 		if(strstr(json_object_get_string(jmessage),"Wrong resolt!")!=NULL){
@@ -108,6 +110,17 @@ void  send_msg_handler(){
 		}
 		const char * message=json_object_to_json_string(jobj);
 		send(sockfd,message,strlen(message),0);
+		if(strstr(buffer,"menu")!=NULL){
+			for(int i=0;i<in;i++){
+				printf("%s-->%d\n",names[i],i+1);
+			}
+			char p33[20];
+			bzero(p33,20);
+			printf(">");
+			fgets(p33,20,stdin);
+			str_trim_lf(p33,strlen(p33));
+			send(sockfd,p33,strlen(p33),0);
+		}
 		if(strcmp(buffer,"exit")==0){
 			bzero(buffer,BUFFER_SZ);
 			break;
@@ -284,23 +297,24 @@ int main(int argc,char ** argv){
 	}
 	printf("============ WELCOME =============\n");
 
-	printf("%s\n","To whom to send messages: " );
-	char * names[100];
+//	printf("%s\n","To whom to send messages: " );
 	char ttr[1000];
 	char p1[20];
-	int in=0;
 	recv(sockfd,p1,strlen(p1),0);
 	bzero(ttr,1000);
+	in=atoi(p1);
 	for(int i=0;i<atoi(p1);i++){
 		recv(sockfd,ttr,1000,0);
-	  names[i]=ttr;
-		printf("%s-->%d,\n", names[i],i);
+	  for(int j=0;j<strlen(ttr);j++)
+			names[i]=malloc(strlen(ttr));
+			strcpy(names[i],ttr);
+		//printf("%s-->%d,\n", names[i],i);
 		bzero(ttr,1000);
 	}
-	printf(">");
+	/*printf(">");
 	fgets(p1,10,stdin);
 	str_trim_lf(p1,strlen(p1));
-	send(sockfd,p1,strlen(p1),0);
+	send(sockfd,p1,strlen(p1),0);*/
 
 	char p3[20];
 	bzero(p3,20);
