@@ -14,7 +14,7 @@
 #include "task.c"
 
 #define PORT 3425
-#define IP "127.0.2.35"
+#define IP "127.0.2.98"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -383,7 +383,8 @@ void * handle_client(void * arg){
 		if(mysql_query(conn,buff)){
 				finish_with_error(conn);
 			}
-			sprintf(buff,"Select count(*) from Expressions where User='%s' and RecipientName='%s' and Transmitted='%s'",cli->recipientname,cli->name,"No");
+
+			sprintf(buff,"Select count(*) from Expressions where User='%s' and Transmitted='%s' and Readed='%s'",cli->name,"Yes","No");
 			if(mysql_query(conn,buff)){
 							finish_with_error(conn);
 			}
@@ -394,6 +395,44 @@ void * handle_client(void * arg){
 							send(cli->sockfd,row[0],strlen(row[0]),0);
 			}
 			if(h1>0){
+				recv(cli->sockfd,p1,10,0);
+				if(atoi(p1)==1){
+					sprintf(buff,"Select Task,Result,RecipientName from Expressions where  User='%s' and Transmitted='%s' and Readed='%s'",cli->name,"Yes","No");
+					if(mysql_query(conn,buff)){
+									finish_with_error(conn);
+					}
+					res=mysql_store_result(conn);
+					char *b1[50];
+					int ind=0;
+					char  mm2[1024];
+					while(row=mysql_fetch_row(res)){
+								  bzero(mm2,1024);
+									sprintf(mm2,"Task:%s,%s:%s",row[0],row[2],row[1]);
+									sprintf(buff,"Update Expressions  set Readed='%s' where task='%s' and User='%s'","Yes",row[0],cli->name);
+									if(mysql_query(conn,buff)){
+											finish_with_error(conn);
+										}
+									sleep(1);
+									send(cli->sockfd,mm2,strlen(mm2),0);
+					}
+				}
+			}
+
+
+
+
+
+			sprintf(buff,"Select count(*) from Expressions where User='%s' and RecipientName='%s' and Transmitted='%s'",cli->recipientname,cli->name,"No");
+			if(mysql_query(conn,buff)){
+							finish_with_error(conn);
+			}
+			res=mysql_store_result(conn);
+			int h2;
+			while(row=mysql_fetch_row(res)){
+							h2=atoi(row[0]);
+							send(cli->sockfd,row[0],strlen(row[0]),0);
+			}
+			if(h2>0){
 				recv(cli->sockfd,p1,10,0);
 				if(atoi(p1)==1){
 					  bzero(buffer,BUFFER_SZ);
@@ -409,6 +448,7 @@ void * handle_client(void * arg){
 
         struct json_object * parser_json;
         struct json_object * jname;
+				struct json_object * jrname;
         struct json_object *jmessage;
         struct json_object *jtask;
         struct json_object *jserv_sec;
@@ -424,7 +464,7 @@ void * handle_client(void * arg){
 											while(row=mysql_fetch_row(res)){
 															strcpy(rp,row[0]);
 											}
-											if(strcmp(rp,"Yes")==0){
+
 													sprintf(buff,"Select Task from Expressions where User='%s' and RecipientName='%s' and Transmitted='%s'",cli->recipientname,cli->name,"No");
 													if(mysql_query(conn,buff)){
 																	finish_with_error(conn);
@@ -458,12 +498,21 @@ void * handle_client(void * arg){
 															}
 															sleep(5);
 													}
-							}
+
 							bzero(buffer,BUFFER_SZ);
 						continue;
 					}
 					int receive=recv(cli->sockfd,buffer,BUFFER_SZ,0);
 	        parser_json=json_tokener_parse(buffer);
+					json_object_object_get_ex(parser_json,"Rname",&jrname);
+					const char *temp22=json_object_get_string(jrname);
+					if(strcmp(temp22,"-1")!=0){
+						strcpy(cli->recipientname,temp22);
+						sprintf(buff,"Update Users set RecipientName='%s' where Login='%s'",cli->recipientname,login);
+						if(mysql_query(conn,buff)){
+								finish_with_error(conn);
+							}
+					}
         if(strstr(buffer,"exit") !=NULL){
             jobj=json_object_new_object();
             jmessage=json_object_new_string("has left");
@@ -472,7 +521,6 @@ void * handle_client(void * arg){
             json_object_object_add(jobj,"Message",jmessage);
             bzero(buffer,BUFFER_SZ);
             const char * ptr=json_object_get_string(jname);
-						printf("%s\n",ptr );
             printf("\n%s has left\n",ptr );
             sprintf(buffer,"%s\n",json_object_get_string(jobj));
             send_message(buffer,cli);
@@ -512,6 +560,26 @@ void * handle_client(void * arg){
                     }
                         if(result==cli_res){
                         send_message(buffer,cli);
+												sprintf(buff,"Select Online from Users Where Name='%s'",cli->recipientname);
+														if(mysql_query(conn,buff)){
+																		finish_with_error(conn);
+														}
+														res=mysql_store_result(conn);
+														 char rp2[32];
+														while(row=mysql_fetch_row(res)){
+																		strcpy(rp2,row[0]);
+														}
+														if(strcmp(rp2,"No")==0){
+															sprintf(buff,"Update Expressions Set Readed='%s' Where User='%s' and Task='%s'","No",cli->recipientname,tas);
+															if(mysql_query(conn,buff)){
+																			finish_with_error(conn);
+															}
+														}else{
+															sprintf(buff,"Update Expressions Set Readed='%s' Where User='%s' and Task='%s'","Yes",cli->recipientname,tas);
+															if(mysql_query(conn,buff)){
+																			finish_with_error(conn);
+															}
+														}
                     }else{
                         jmessage=json_object_new_string("Wrong resolt!");
                         jname=json_object_new_string("Server");

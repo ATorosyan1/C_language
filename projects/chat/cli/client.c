@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 3425
-#define IP "127.0.2.35"
+#define IP "127.0.2.98"
 #define true 1
 
 #define BUFFER_SZ 2048
@@ -28,7 +28,7 @@ int sockfd=0;
 char name[NAME_LEN_1];
 char login[NAME_LEN_1];
 char password[NAME_LEN_1];
-char recipientname[NAME_LEN_1];
+char recipientname[NAME_LEN_1]="-1";
 char last_task[TASK_LEN];
 
 void str_overwrite_stdout(){
@@ -85,12 +85,14 @@ void  send_msg_handler(){
 		struct json_object * jobj=json_object_new_object();
 		struct json_object *jmessage=json_object_new_string(buffer);
 		struct json_object *jname=json_object_new_string(name);
+		struct json_object *jrname=json_object_new_string(recipientname);
 		struct json_object *jtask=json_object_new_string(last_task);
 		struct json_object *jserv_sec=json_object_new_int(serv_time);
 		struct json_object *jclient_sec=json_object_new_int(mytime->tm_hour*3600+mytime->tm_min*60+mytime->tm_sec);
 
 		json_object_object_add(jobj,"Name",jname);
 		json_object_object_add(jobj,"Message",jmessage);
+		json_object_object_add(jobj,"Rname",jrname);
 
 		int falg_1=0;
 		if(strstr(json_object_get_string(jmessage),"Wrong resolt!")!=NULL){
@@ -134,6 +136,8 @@ void recv_msg_handler(){
 			last_message =-1;
 			json_parser=json_tokener_parse(message);
 			json_object_object_get_ex(json_parser,"Name",&jname);
+			const char *temp22=json_object_get_string(jname);
+			strcpy(recipientname,temp22);
 			json_object_object_get_ex(json_parser,"Message",&jmessage);
 
 			int flag_2=0;
@@ -282,21 +286,46 @@ int main(int argc,char ** argv){
 
 	printf("%s\n","To whom to send messages: " );
 	char * names[100];
-	char ttr[100];
+	char ttr[1000];
 	char p1[20];
 	int in=0;
 	recv(sockfd,p1,strlen(p1),0);
-	bzero(ttr,100);
+	bzero(ttr,1000);
 	for(int i=0;i<atoi(p1);i++){
-		recv(sockfd,ttr,100,0);
+		recv(sockfd,ttr,1000,0);
 	  names[i]=ttr;
 		printf("%s-->%d,\n", names[i],i);
-		bzero(ttr,100);
+		bzero(ttr,1000);
 	}
 	printf(">");
 	fgets(p1,10,stdin);
 	str_trim_lf(p1,strlen(p1));
 	send(sockfd,p1,strlen(p1),0);
+
+	char p3[20];
+	bzero(p3,20);
+	recv(sockfd,p3,20,0);
+
+	if(atoi(p3)>0){
+		printf("You have %s unread Result!\n",p3 );
+		printf("Read?\n");
+		printf("Yes-->1\nNo-->2\n" );
+		printf(">");
+		int len=atoi(p3);
+		bzero(p3,20);
+		fgets(p3,20,stdin);
+		str_trim_lf(p1,strlen(p3));
+		send(sockfd,p3,strlen(p3),0);
+		if(atoi(p3)==1){
+			for(int i=0;i<len;i++){
+				bzero(ttr,1000);
+				sleep(1);
+				recv(sockfd,ttr,1000,0);
+				printf("%s\n",ttr );
+			}
+  	}
+	}
+
 
 	bzero(p1,20);
 	recv(sockfd,p1,20,0);
